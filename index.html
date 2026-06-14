@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#e07c3c">
+<title>每日菜谱</title>
+<link rel="manifest" href="manifest.json">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#fdf6ec;--card:#fff;--primary:#e07c3c;--text:#3d2e1c;--sub:#8b7355;--tag-ca:#4a9;--tag-cool:#59b;--tag-spicy:#e85;--tag-home:#c80;--tag-fast:#6a5}
+body{font-family:-apple-system,PingFang SC,Hiragino Sans GB,Microsoft YaHei,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
+
+/* Top Bar */
+.topbar{position:sticky;top:0;z-index:100;background:var(--primary);color:#fff;padding:12px 16px;padding-top:max(12px,env(safe-area-inset-top));display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.topbar h1{font-size:18px;font-weight:600}
+.topbar .date{font-size:13px;opacity:.9}
+
+/* Week Switcher */
+.week-switcher{display:flex;gap:8px;padding:12px 16px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.week-switcher::-webkit-scrollbar{display:none}
+.week-btn{flex-shrink:0;padding:6px 16px;border-radius:20px;border:1.5px solid var(--primary);background:#fff;color:var(--primary);font-size:14px;font-weight:500;cursor:pointer;transition:all .2s}
+.week-btn.active{background:var(--primary);color:#fff}
+
+/* Day Pills */
+.day-pills{display:flex;gap:6px;padding:0 16px 12px;overflow-x:auto;scrollbar-width:none}
+.day-pills::-webkit-scrollbar{display:none}
+.day-pill{flex-shrink:0;width:48px;height:56px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;cursor:pointer;transition:.2s;border:1.5px solid transparent;background:#fff;color:var(--text)}
+.day-pill .dow{font-weight:600;font-size:13px}
+.day-pill .dom{opacity:.6}
+.day-pill.today{border-color:var(--primary);background:#fff8f0}
+.day-pill.active{background:var(--primary);color:#fff}
+.day-pill.active .dom{opacity:.8}
+
+/* Meal Cards */
+.content{padding:0 16px 80px}
+.day-title{font-size:20px;font-weight:700;margin:8px 0 14px;display:flex;align-items:center;gap:10px}
+.day-cost{font-size:14px;font-weight:400;color:var(--primary);background:#fff0e8;padding:2px 10px;border-radius:12px}
+.meal-card{background:var(--card);border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.meal-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.meal-label{font-size:13px;font-weight:700;padding:3px 10px;border-radius:10px;display:inline-block}
+.meal-label.breakfast{background:#fff3cd;color:#b8860b}
+.meal-label.lunch{background:#ffe0d0;color:#c0392b}
+.meal-label.dinner{background:#d8e9ff;color:#2471a3}
+.meal-name{font-size:16px;font-weight:600;margin:8px 0 4px}
+.meal-cost{font-size:13px;color:var(--sub)}
+.meal-tags{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.tag{font-size:11px;padding:2px 8px;border-radius:8px;background:#f5f0e8}
+.tag.ca{background:#e0f5ec;color:#2d7d5f}
+.tag.cool{background:#e0ecf7;color:#2d5f8d}
+.tag.spicy{background:#fde8e0;color:#b8452d}
+
+/* Dish items */
+.dish{border-top:1px solid #f0ebe0;padding:10px 0}
+.dish:first-of-type{border-top:none}
+.dish-name{font-size:15px;font-weight:600;color:var(--text);cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.dish-name::after{content:'▼';font-size:10px;transition:.3s;color:#ccc}
+.dish.open .dish-name::after{transform:rotate(180deg)}
+.dish-body{display:none;padding-top:8px}
+.dish.open .dish-body{display:block}
+.ingredients{margin:8px 0}
+.ing-title,.step-title{font-size:12px;font-weight:600;color:var(--sub);margin-bottom:4px}
+.ing-list{display:flex;flex-wrap:wrap;gap:4px 10px}
+.ing-item{font-size:13px;display:flex;gap:4px}
+.ing-name{color:var(--text)}
+.ing-amount{color:var(--sub)}
+.steps{list-style:none;padding:0}
+.steps li{font-size:13px;padding:4px 0;padding-left:20px;position:relative;color:#555;line-height:1.5}
+.steps li::before{content:attr(data-n);position:absolute;left:0;color:var(--primary);font-weight:700;font-size:11px}
+.note{font-size:12px;color:var(--primary);background:#fff8f3;padding:6px 10px;border-radius:8px;margin-top:8px;line-height:1.5}
+
+/* Empty */
+.empty{text-align:center;padding:60px 20px;color:var(--sub)}
+.empty .icon{font-size:48px}
+.empty p{margin-top:12px;font-size:15px}
+
+/* Bottom */
+.bottom{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #eee;padding:8px 16px;padding-bottom:max(8px,env(safe-area-inset-bottom));display:flex;justify-content:space-around;font-size:11px;color:var(--sub)}
+.bottom .stat{text-align:center}
+.bottom .stat strong{display:block;font-size:16px;color:var(--text)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div><h1>🥢 每日菜谱</h1><div class="date" id="todayLabel"></div></div>
+  <div style="font-size:13px">豫东家常</div>
+</div>
+
+<div class="week-switcher" id="weekSwitcher"></div>
+<div class="day-pills" id="dayPills"></div>
+<div class="content" id="content"></div>
+<div class="bottom" id="bottom"></div>
+
+<script>
+// ============ MENU DATA ============
+const MENU = [
+  // Week 1: 6/15-6/21
+  {date:"2026-06-15",dow:"周一",week:1,breakfast:{name:"小米南瓜粥 + 馒头 + 虾皮蒸蛋羹",cost:8,tags:["🦴补钙"],dishes:[
+    {name:"小米南瓜粥",ing:[["小米","60克"],["南瓜","200克"]],steps:["小米淘洗，南瓜去皮切小块","加水煮约25分钟至粘稠"]},
+    {name:"虾皮蒸蛋羹",ing:[["鸡蛋","3个"],["虾皮","10克"],["小葱","适量"],["生抽","少许"]],steps:["鸡蛋打散+1.5倍温水+盐搅匀撇沫","撒上虾皮","蒸锅水开小火蒸10分钟（锅盖留缝）","出锅淋生抽香油撒葱花"],note:"🦴 虾皮是钙王，一小把顶半杯牛奶"},
+    {name:"馒头",ing:[["馒头","3个"]],steps:["蒸锅加热即食"]}
+  ]},lunch:{name:"荆芥捞面条 + 青椒炒肉丝 + 芝麻酱拌豆角",cost:24,tags:["🏠豫东","❄️消暑","🌶️微辣","🦴补钙"],dishes:[
+    {name:"荆芥捞面条",ing:[["面条","400克"],["番茄","2个"],["鸡蛋","2个"],["荆芥","100克"],["黄瓜","1根"],["大蒜","4瓣"]],steps:["番茄切块炒蛋成卤","蒜泥+生抽+香醋+香油调蒜汁","面条煮熟后过凉水沥干","碗中放面→浇卤→铺黄瓜丝+荆芥→淋蒜汁"]},
+    {name:"青椒炒肉丝",ing:[["猪瘦肉","150克"],["青椒","2个"],["姜蒜","适量"]],steps:["肉丝+生抽+淀粉腌10分钟","热锅凉油滑散肉丝盛出","爆姜蒜+青椒丝大火炒1分钟","合入肉丝+盐翻炒出锅"]},
+    {name:"芝麻酱拌豆角",ing:[["豆角","250克"],["芝麻酱","2勺"],["大蒜","适量"]],steps:["豆角焯水3分钟至熟过凉切段","芝麻酱+生抽+香醋+蒜泥+凉白开澥开","淋豆角上拌匀"],note:"🦴 芝麻酱钙含量是牛奶的8倍"}
+  ]},dinner:{name:"绿豆小米粥 + 馒头 + 韭菜炒蛋 + 小葱拌豆腐",cost:18,tags:["❄️消暑","🦴补钙"],dishes:[
+    {name:"绿豆小米粥",ing:[["绿豆","30克"],["小米","40克"]],steps:["绿豆+小米淘洗，加水煮粥约25分钟"]},
+    {name:"韭菜炒蛋",ing:[["韭菜","200克"],["鸡蛋","3个"]],steps:["韭菜切段，鸡蛋打散","热油炒蛋盛出，下韭菜大火快炒30秒","合入鸡蛋+盐翻炒出锅"]},
+    {name:"小葱拌豆腐",ing:[["嫩豆腐","1盒(400g)"],["小葱","3根"]],steps:["豆腐切小丁焯水1分钟去豆腥沥干","加葱花+生抽+香油轻轻拌匀"],note:"🦴 豆腐含钙量高"}
+  ]}},
+  {date:"2026-06-16",dow:"周二",week:1,breakfast:{name:"花生大米粥 + 花卷 + 煮鸡蛋 + 凉拌莴笋",cost:9,tags:[],dishes:[
+    {name:"花生大米粥",ing:[["大米","60克"],["花生米","30克"]],steps:["大米+花生淘洗加水煮粥25分钟至花生软烂"]},
+    {name:"煮鸡蛋",ing:[["鸡蛋","3个"]],steps:["冷水下锅，水开后煮6-7分钟捞出过凉"]},
+    {name:"凉拌莴笋",ing:[["莴笋","1根"],["大蒜","适量"]],steps:["莴笋去皮切丝，焯水10秒过凉","加盐+蒜泥+香油拌匀"]}
+  ]},lunch:{name:"米饭 + 青椒肉丝 + 番茄炒蛋 + 清炒空心菜 + 紫菜虾皮汤",cost:32,tags:["🌶️微辣","🦴补钙"],dishes:[
+    {name:"青椒肉丝",ing:[["猪瘦肉","200克"],["青椒","3个"],["姜蒜","适量"]],steps:["肉丝+生抽+淀粉腌10分钟","热锅凉油滑散盛出","爆姜蒜+青椒丝大火炒1分钟+肉丝+盐"]},
+    {name:"番茄炒蛋",ing:[["番茄","3个"],["鸡蛋","3个"]],steps:["鸡蛋打散炒熟盛出","番茄切块炒出汁+鸡蛋+盐+糖"]},
+    {name:"清炒空心菜",ing:[["空心菜","300克"],["大蒜","适量"]],steps:["蒜末爆香，下空心菜大火快炒1分钟+盐"]},
+    {name:"紫菜虾皮汤",ing:[["紫菜","1片"],["虾皮","10克"],["鸡蛋","1个"]],steps:["水开+虾皮+紫菜+蛋花+盐+香油煮1分钟"],note:"🦴 虾皮入汤鲜香又补钙"},
+    {name:"米饭",ing:[["大米","200克"]],steps:["电饭煲正常煮"]}
+  ]},dinner:{name:"红薯小米粥 + 馒头 + 丝瓜炒蛋 + 凉拌木耳",cost:16,tags:["❄️消暑","🦴补钙"],dishes:[
+    {name:"红薯小米粥",ing:[["红薯","1个(大)"],["小米","50克"]],steps:["红薯去皮切滚刀块+小米煮粥25分钟"]},
+    {name:"丝瓜炒蛋",ing:[["丝瓜","2根"],["鸡蛋","3个"]],steps:["丝瓜去皮切滚刀块","热油炒蛋盛出，下丝瓜炒软合入+盐"]},
+    {name:"凉拌木耳",ing:[["木耳(干)","30克"],["洋葱","半个"],["大蒜","适量"]],steps:["木耳泡发焯水2分钟撕小朵","洋葱切丝+蒜泥+生抽+香醋+香油拌匀"],note:"🦴 木耳含钙和铁"}
+  ]}},
+  {date:"2026-06-17",dow:"周三",week:1,breakfast:{name:"豆浆 + 馒头 + 煮鸡蛋 + 芝麻酱拌黄瓜",cost:10,tags:["🦴补钙"],dishes:[
+    {name:"豆浆",ing:[["黄豆","80克"]],steps:["黄豆提前一晚泡好","加水打豆浆，煮沸后小火再煮5分钟"]},
+    {name:"芝麻酱拌黄瓜",ing:[["黄瓜","2根"],["芝麻酱","2勺"],["大蒜","适量"]],steps:["黄瓜拍碎切段","芝麻酱+生抽+香醋+蒜泥+凉白开澥开淋上"],note:"🦴 豆浆+芝麻酱，双重补钙"}
+  ]},lunch:{name:"米饭 + 红烧排骨 + 番茄炒蛋 + 蒜蓉西兰花",cost:38,tags:["🦴补钙"],dishes:[
+    {name:"红烧排骨",ing:[["排骨","500克"],["冰糖","15克"],["姜葱","适量"],["料酒、生抽、老抽、八角","适量"]],steps:["排骨冷水下锅+料酒+姜片焯水去血沫沥干","锅中少油+冰糖小火炒至琥珀色","下排骨快速翻炒上色+姜葱八角+料酒+生抽+老抽+开水","大火烧开转小火炖30分钟（或高压锅压10分钟再收汁）","大火收汁至浓稠"],note:"🦴 红烧后骨头里的钙更易溶出"},
+    {name:"番茄炒蛋",ing:[["番茄","3个"],["鸡蛋","3个"]],steps:["同前"]},
+    {name:"蒜蓉西兰花",ing:[["西兰花","1颗"],["大蒜","4瓣"]],steps:["西兰花切小朵焯水1分钟","蒜末油+生抽+盐淋上"]},
+    {name:"米饭",ing:[["大米","200克"]],steps:["电饭煲煮"]}
+  ]},dinner:{name:"大米绿豆粥 + 菜馍 + 凉拌海带丝",cost:17,tags:["🏠豫东","❄️消暑","🦴补钙"],dishes:[
+    {name:"大米绿豆粥",ing:[["大米","40克"],["绿豆","30克"]],steps:["淘洗加水煮粥25分钟"]},
+    {name:"菜馍",ing:[["面粉","300克"],["鸡蛋","2个"],["韭菜","200克"],["粉条","50克"]],steps:["韭菜碎+炒蛋+泡软粉条+盐+油调馅","面粉和面擀薄饼，两张夹馅压边","电饼铛两面烙至金黄（约4分钟一面）"]},
+    {name:"凉拌海带丝",ing:[["海带丝","150克"],["大蒜","适量"]],steps:["海带丝焯水2分钟过凉","蒜泥+生抽+香醋+香油拌匀"],note:"🦴 海带富含钙和碘"}
+  ]}},
+  {date:"2026-06-18",dow:"周四",week:1,breakfast:{name:"鸡蛋面汤 + 馒头 + 煮鸡蛋 + 凉拌莴笋",cost:8,tags:["🏠豫东","❄️消暑"],dishes:[
+    {name:"鸡蛋面汤",ing:[["面粉","40克"],["鸡蛋","1个"]],steps:["面粉+冷水搅成稀面糊","水开后边倒边搅，打入蛋花煮2分钟"]},
+    {name:"煮鸡蛋+凉拌莴笋",ing:[["鸡蛋","3个"],["莴笋","1根"]],steps:["鸡蛋冷水煮6-7分钟","莴笋去皮切丝焯水10秒+盐+蒜泥+香油"]}
+  ]},lunch:{name:"米饭 + 清蒸鲈鱼 + 冬瓜炖排骨 + 炒空心菜",cost:42,tags:["🦴补钙","❄️消暑"],dishes:[
+    {name:"清蒸鲈鱼",ing:[["鲈鱼","1条(约500g)"],["姜","适量"],["葱","适量"],["蒸鱼豉油","适量"],["料酒","适量"]],steps:["鲈鱼处理干净划几刀+料酒+姜片+葱段腌10分钟","放入微蒸烤，纯蒸模式100°C蒸8-10分钟","出锅倒掉盘中汤汁（去腥）","铺新鲜姜丝葱丝，淋蒸鱼豉油","热油浇上激出香味"],note:"🦴 鲈鱼连骨蒸，钙质丰富"},
+    {name:"冬瓜炖排骨",ing:[["排骨","300克"],["冬瓜","400克"],["姜葱","适量"],["枸杞","少许"]],steps:["排骨焯水+高压锅+姜葱+开水压15分钟","冬瓜去皮切厚块入汤煮10分钟+盐+枸杞"]},
+    {name:"炒空心菜",ing:[["空心菜","300克"],["蒜","适量"]],steps:["蒜末爆香大火快炒1分钟+盐"]},
+    {name:"米饭",ing:[["大米","200克"]],steps:["电饭煲煮"]}
+  ]},dinner:{name:"小米绿豆粥 + 烙馍 + 蒜薹炒肉 + 凉拌荆芥黄瓜",cost:17,tags:["🏠豫东","❄️消暑","🌶️微辣"],dishes:[
+    {name:"蒜薹炒肉",ing:[["猪瘦肉","200克"],["蒜薹","250克"],["干辣椒","2个(去籽)"],["姜蒜","适量"]],steps:["肉丝+生抽+淀粉腌10分钟滑散盛出","爆姜蒜+干辣椒+蒜薹大火炒2分钟+肉丝+盐"]},
+    {name:"凉拌荆芥黄瓜",ing:[["荆芥","80克"],["黄瓜","2根"],["大蒜","适量"]],steps:["黄瓜拍碎切段+荆芥洗净择叶","蒜泥+生抽+香醋+香油拌匀"]}
+  ]}},
+  {date:"2026-06-19",dow:"周五",week:1,breakfast:{name:"大米红薯粥 + 花卷 + 虾皮蒸蛋羹",cost:9,tags:["🦴补钙"],dishes:[
+    {name:"大米红薯粥",ing:[["大米","50克"],["红薯","1个(中)"]],steps:["红薯去皮切块+大米煮粥25分钟"]},
+    {name:"虾皮蒸蛋羹",ing:[["鸡蛋","3个"],["虾皮","10克"]],steps:["鸡蛋+1.5倍温水+盐撇沫撒虾皮","小火蒸10分钟淋生抽香油"]}
+  ]},lunch:{name:"豆角焖面 + 番茄蛋汤 + 凉拌豆皮",cost:28,tags:[],dishes:[
+    {name:"豆角焖面",ing:[["鲜面条","400克"],["猪瘦肉","200克"],["豆角","300克"],["姜蒜","适量"]],steps:["肉丝炒变色+老抽+豆角翻炒+生抽+水煮开","面条均匀铺菜上盖盖小火焖8-10分钟","开盖翻拌均匀"]},
+    {name:"番茄蛋汤",ing:[["番茄","1个"],["鸡蛋","1个"]],steps:["番茄炒出汁+水烧开+蛋花+盐+香油"]},
+    {name:"凉拌豆皮",ing:[["豆皮","150克"],["香菜","适量"]],steps:["豆皮切丝焯水30秒+蒜泥+生抽+香醋+香油+香菜"]}
+  ]},dinner:{name:"面筋咸稀饭 + 烙馍 + 青椒炒蛋 + 芝麻酱拌豆角",cost:20,tags:["🏠豫东","🦴补钙"],dishes:[
+    {name:"面筋咸稀饭",ing:[["面粉(洗面筋)","200克"],["花生米","30克"],["干黄豆","30克"],["粉条","50克"],["小青菜","150克"]],steps:["面粉200g和面醒20分钟，加水揉洗出淀粉水留用","面筋撕小块","水开+花生黄豆煮15分钟+粉条+面筋+淀粉水搅煮5分钟","加青菜+盐+香油"]},
+    {name:"芝麻酱拌豆角",ing:[["豆角","250克"],["芝麻酱","2勺"]],steps:["豆角焯水+澥开芝麻酱+蒜泥拌匀"]}
+  ]}},
+  {date:"2026-06-20",dow:"周六",week:1,breakfast:{name:"豆浆 + 葱花鸡蛋饼 + 凉拌海带丝",cost:11,tags:["🦴补钙"],dishes:[
+    {name:"豆浆",ing:[["黄豆","80克"]],steps:["黄豆泡好打豆浆，煮沸再煮5分钟"]},
+    {name:"葱花鸡蛋饼",ing:[["面粉","200克"],["鸡蛋","3个"],["小葱","3根"]],steps:["面粉+鸡蛋+水+葱花+盐搅糊","电饼铛刷油倒入摊平，两面各煎2分钟"]},
+    {name:"凉拌海带丝",ing:[["海带丝","150克"]],steps:["焯水2分钟+蒜泥+调料"]}
+  ]},lunch:{name:"米饭 + 红烧鱼块 + 青椒肉丝 + 番茄炒蛋 + 虾皮紫菜汤",cost:45,tags:["🌶️微辣","🦴补钙"],dishes:[
+    {name:"红烧鱼块",ing:[["草鱼中段","500克"],["姜葱蒜","适量"],["干辣椒","1个(去籽)"]],steps:["鱼块+料酒+姜+盐腌15分钟擦干","热油煎两面金黄盛出","爆姜蒜+干辣椒+鱼块+料酒+生抽+老抽+糖+水","中火烧10分钟大火收汁撒葱花"]},
+    {name:"青椒肉丝",ing:[["猪瘦肉","200克"],["青椒","3个"]],steps:["同前"]},
+    {name:"番茄炒蛋",ing:[["番茄","3个"],["鸡蛋","3个"]],steps:["同前"]},
+    {name:"虾皮紫菜汤",ing:[["紫菜","1片"],["虾皮","10克"],["鸡蛋","1个"]],steps:["水开+虾皮+紫菜+蛋花+盐+香油"]},
+    {name:"米饭",ing:[["大米","200克"]],steps:["电饭煲煮"]}
+  ]},dinner:{name:"南瓜小米粥 + 花卷 + 肉末豆角 + 小葱拌豆腐",cost:18,tags:["🦴补钙"],dishes:[
+    {name:"肉末豆角",ing:[["猪肉馅","150克"],["豆角","300克"],["姜蒜","适量"]],steps:["肉末煸炒出油+姜蒜+老抽","下豆角丁+生抽+少许水煮5分钟收汁+盐"]},
+    {name:"小葱拌豆腐",ing:[["嫩豆腐","1盒"],["小葱","3根"]],steps:["豆腐切丁焯水+葱花+生抽+香油"]}
+  ]}},
+  {date:"2026-06-21",dow:"周日",week:1,breakfast:{name:"面糊汤 + 塌菜馍 + 煮鸡蛋",cost:10,tags:["🏠豫东"],dishes:[
+    {name:"面糊汤",ing:[["面粉","40克"],["鸡蛋","1个"]],steps:["面粉+冷水搅稀糊","水开边倒边搅+蛋花煮面汤"]},
+    {name:"塌菜馍",ing:[["面粉","300克"],["鸡蛋","2个"],["韭菜","200克"],["粉条","50克"]],steps:["和面醒20分钟擀薄饼","韭菜碎+炒蛋+泡软粉条+盐+油调馅","两张饼夹馅，电饼铛两面烙金黄"]}
+  ]},lunch:{name:"米饭 + 黄焖鸡 + 番茄炒蛋 + 炒小青菜",cost:50,tags:["🦴补钙"],dishes:[
+    {name:"黄焖鸡",ing:[["鸡腿/半只鸡","500克"],["土豆","2个"],["青椒","2个"],["干香菇","5朵"],["冰糖、姜葱、料酒、生抽、老抽","适量"]],steps:["鸡肉斩块焯水去血沫沥干","锅中少油+冰糖小火炒至琥珀色","下鸡块翻炒上色+姜葱+料酒+生抽+老抽+泡发香菇+香菇水+开水","大火烧开转小火炖20分钟","土豆去皮切块加入再炖10分钟","加青椒块大火收汁2分钟出锅"],note:"鸡肉含磷助钙吸收，香菇维D促钙利用"},
+    {name:"番茄炒蛋",ing:[["番茄","3个"],["鸡蛋","3个"]],steps:["同前"]},
+    {name:"炒小青菜",ing:[["小青菜","300克"],["蒜","适量"]],steps:["蒜末大火快炒1分钟+盐"]},
+    {name:"米饭",ing:[["大米","200克"]],steps:["电饭煲煮"]}
+  ]},dinner:{name:"紫菜蛋花汤 + 蒸饺 + 蒜蓉蒸茄子 + 凉拌黄瓜",cost:20,tags:["⚡快手","❄️消暑"],dishes:[
+    {name:"蒸饺",ing:[["速冻饺子","1袋(500g)"]],steps:["蒸锅水开后蒸10-12分钟"]},
+    {name:"蒜蓉蒸茄子",ing:[["茄子","2根"],["大蒜","适量"]],steps:["茄子切条蒸8-10分钟+蒜泥+生抽+香油"]},
+    {name:"凉拌黄瓜",ing:[["黄瓜","2根"]],steps:["拍碎+蒜泥+香醋+香油"]}
+  ]}},
+
+  // Week 2: 6/22-6/28
+  {date:"2026-06-22",dow:"周一",week:2,breakfast:{name:"花生大米粥 + 花卷 + 虾皮蒸蛋羹",cost:9,tags:["🦴补钙"],dishes:[
+    {name:"花生大米粥",ing:[["大米","60克"],["花生米","30克"]],steps:["淘洗煮粥25分钟"]},
+    {name:"虾皮蒸蛋羹",ing:[["鸡蛋","3个"],["虾皮","10克"]],steps:["鸡蛋+温水+盐撇沫撒虾皮小火蒸10分钟"]}
+  ]},lunch:{name:"番茄鸡蛋捞面 + 蒜薹炒肉 + 凉拌海带丝",cost:26,tags:["🏠豫东","🌶️微辣","🦴补钙"],dishes:[
+    {name:"番茄鸡蛋捞面",ing:[["面条","400克"],["番茄","3个"],["鸡蛋","3个"]],steps:["番茄炒蛋成卤","面条煮熟过凉水浇卤"]},
+    {name:"蒜薹炒肉",ing:[["猪瘦肉","150克"],["蒜薹","200克"],["干辣椒","1个(去籽)"]],steps:["肉丝+生抽+淀粉腌10分钟滑散","爆姜蒜+干辣椒+蒜薹大火炒2分钟+肉丝+盐"]},
+    {name:"凉拌海带丝",ing:[["海带丝","150克"]],steps:["焯水2分钟+蒜泥+调料"]}
+  ]},dinner:{name:"小米绿豆粥 + 烙馍 + 青椒炒蛋 + 芝麻酱拌豆角",cost:19,tags:["🦴补钙"],dishes:[
+    {name:"青椒炒蛋",ing:[["青椒","2个"],["鸡蛋","3个"]],steps:["先炒蛋盛出，青椒丝大火炒30秒+蛋+盐"]},
+    {name:"芝麻酱拌豆角",ing:[["豆角","250克"],["芝麻酱","2勺"]],steps:["豆角焯水+澥开芝麻酱+蒜泥拌匀"]}
+  ]}},
+  {date:"2026-06-23",dow:"周二",week:2,breakfast:{name:"鸡蛋面汤 + 馒头 + 煮鸡蛋 + 凉拌莴笋",cost:8,tags:["🏠豫东","❄️消暑"],dishes:[
+    {name:"鸡蛋面汤",ing:[["面粉","40克"],["鸡蛋","1个"]],steps:["面糊搅稀→水开边倒边搅+蛋花煮2分钟"]},
+    {name:"凉拌莴笋",ing:[["莴笋","1根"]],steps:["去皮切丝焯水+盐+蒜泥+香油"]}
+  ]},lunch:{name:"米饭 + 丝瓜炒肉片 + 番茄炒蛋 + 清炒苋菜 + 紫菜虾皮汤",cost:35,tags:["🦴补钙","❄️消暑"],dishes:[
+    {name:"丝瓜炒肉片",ing:[["猪瘦肉","200克"],["丝瓜","2根"]],steps:["肉片+生抽+淀粉腌10分钟滑散盛出","丝瓜去皮切块炒软+肉片+盐"]},
+    {name:"番茄炒蛋",ing:[["番茄","3个"],["鸡蛋","3个"]],steps:["同前"]},
+    {name:"清炒苋菜",ing:[["苋菜","300克"],["蒜","适量"]],steps:["蒜末爆香大火快炒1分钟+盐"]},
+    {name:"紫菜虾皮汤",ing:[["紫菜","1片"],["虾皮","10克"],["鸡蛋","1个"]],steps:["水开+虾皮+紫菜+蛋花+盐+香油"],note:"🦴 苋菜+虾皮双重补钙"}
+  ]},dinner:{name:"大米绿豆粥 + 花卷 + 韭菜炒蛋 + 小葱拌豆腐",cost:17,tags:["🦴补钙"],dishes:[
+    {name:"韭菜炒蛋",ing:[["韭菜","200克"],["鸡蛋","3个"]],steps:["同前"]},
+    {name:"小葱拌豆腐",ing:[["嫩豆腐","1盒"],["小葱","3根"]],steps:["豆腐焯水+葱花+生抽+香油"]}
+  ]}},
+  {date:"2026-06-24",dow:"周三",week:2,breakfast:{name:"豆浆 + 葱花鸡蛋饼 + 芝麻酱拌黄瓜",cost:11,tags:["🦴补钙"],dishes:[
+    {name:"豆浆+鸡蛋饼+麻酱黄瓜",ing:[["黄豆","80克"],["面粉","200克"],["鸡蛋","3个"],["黄瓜","2根"],["芝麻酱","2勺"]],steps:["豆浆煮沸再煮5分钟","面粉+鸡蛋+葱花+盐搅糊煎饼","黄瓜拍碎+澥开芝麻酱+蒜泥"]}
+  ]},lunch:{name:"米饭 + 红烧鸡块 + 青椒土豆丝 + 凉拌木耳",cost:40,tags:["🦴补钙"],dishes:[
+    {name:"红烧鸡块",ing:[["鸡腿/半只鸡","500克"],["土豆","2个"],["冰糖","15克"],["姜葱蒜、料酒、生抽、老抽、八角","适量"]],steps:["鸡块焯水沥干","少油+冰糖炒糖色+鸡块翻炒上色+姜葱蒜八角+料酒+生抽+老抽+开水","大火烧开转小火炖20分钟","加土豆块再炖10分钟大火收汁"]},
+    {name:"青椒土豆丝",ing:[["土豆","2个"],["青椒","2个"]],steps:["土豆切丝泡水+青椒丝大火翻炒+盐+醋"]},
+    {name:"凉拌木耳",ing:[["木耳(干)","30克"],["洋葱","半个"]],steps:["木耳泡发焯水+洋葱丝+蒜泥+调料"]}
+  ]},dinner:{name:"红薯小米粥 + 馒头 + 肉末茄子 + 凉拌豆皮",cost:18,tags:["🦴补钙"],dishes:[
+    {name:"肉末茄子",ing:[["猪肉馅","150克"],["茄子","2根"],["姜蒜","适量"]],steps:["肉末煸炒+姜蒜+老抽+茄子条+少许水焖5分钟+盐"]},
+    {name:"凉拌豆皮",ing:[["豆皮","150克"]],steps:["豆皮切丝焯水+蒜泥+生抽+香醋+香油"]}
+  ]}},
+  {date:"2026-06-25",dow:"周四",week:2,breakfast:{name:"小米南瓜粥 + 馒头 + 煮鸡蛋 + 凉拌黄瓜",cost:8,tags:["❄️消暑"],dishes:[
+    {name:"小米南瓜粥+煮鸡蛋+凉拌黄瓜",ing:[["小米","60克"],["南瓜","200克"],["鸡蛋","3个"],["黄瓜","2根"]],steps:["小米+南瓜煮粥；鸡蛋煮6-7分钟；黄瓜拍碎凉拌"]}
+  ]},lunch:{name:"米饭 + 红烧排骨 + 丝瓜炒蛋 + 蒜蓉西兰花",cost:45,tags:["🦴补钙"],dishes:[
+    {name:"红烧排骨",ing:[["排骨","500克"],["冰糖","15克"],["姜葱、料酒、生抽、老抽、八角","适量"]],steps:["排骨焯水沥干","少油+冰糖炒糖色+排骨上色+姜葱八角+料酒+生抽+老抽+开水","小火炖30分钟（或高压锅压10分钟再收汁）大火收汁"]},
+    {name:"丝瓜炒蛋",ing:[["丝瓜","2根"],["鸡蛋","3个"]],steps:["先炒蛋盛出+丝瓜炒软合入+盐"]},
+    {name:"蒜蓉西兰花",ing:[["西兰花","1颗"]],steps:["焯水1分钟+蒜末油+生抽+盐"]}
+  ]},dinner:{name:"面筋咸稀饭 + 烙馍 + 青椒炒蛋 + 凉拌荆芥黄瓜",cost:17,tags:["🏠豫东"],dishes:[
+    {name:"面筋咸稀饭",ing:[["面粉","200克"],["花生米","30克"],["黄豆","30克"],["粉条","50克"],["青菜","150克"]],steps:["洗面筋→煮花生黄豆→下面筋粉条→淀粉水搅煮→加青菜调味"]},
+    {name:"青椒炒蛋+凉拌荆芥黄瓜",ing:[["青椒","2个"],["鸡蛋","3个"],["荆芥","80克"],["黄瓜","2根"]],steps:["青椒炒蛋；黄瓜拍碎+荆芥+蒜泥+调料"]}
+  ]}},
+  {date:"2026-06-26",dow:"周五",week:2,breakfast:{name:"大米红薯粥 + 花卷 + 虾皮蒸蛋羹",cost:9,tags:["🦴补钙"],dishes:[
+    {name:"红薯粥+虾皮蒸蛋",ing:[["大米","50克"],["红薯","1个"],["鸡蛋","3个"],["虾皮","10克"]],steps:["红薯+大米煮粥；鸡蛋+温水+盐+虾皮蒸10分钟"]}
+  ]},lunch:{name:"豆角焖面 + 青椒肉丝 + 番茄蛋汤",cost:30,tags:["🌶️微辣"],dishes:[
+    {name:"豆角焖面",ing:[["鲜面条","400克"],["猪瘦肉","150克"],["豆角","300克"]],steps:["肉丝炒变色+豆角+调料+水煮开","面条铺上盖盖焖8-10分钟"]},
+    {name:"青椒肉丝",ing:[["猪瘦肉","200克"],["青椒","3个"]],steps:["同前"]},
+    {name:"番茄蛋汤",ing:[["番茄","1个"],["鸡蛋","1个"]],steps:["番茄炒出汁+水+蛋花+盐+香油"]}
+  ]},dinner:{name:"玉米糁粥 + 馒头 + 蒜薹炒肉 + 芝麻酱拌豆角",cost:22,tags:["🦴补钙","🌶️微辣"],dishes:[
+    {name:"玉米糁粥",ing:[["玉米糁","60克"]],steps:["加水煮粥25分钟，小火勤搅拌"]},
+    {name:"蒜薹炒肉",ing:[["猪瘦肉","200克"],["蒜薹","250克"]],steps:["同前"]},
+    {name:"芝麻酱拌豆角",ing:[["豆角","250克"],["芝麻酱","2勺"]],steps:["焯水+澥开芝麻酱+蒜泥"]}
+  ]}},
+  {date:"2026-06-27",dow:"周六",week:2,breakfast:{name:"面糊汤 + 塌菜馍 + 煮鸡蛋",cost:10,tags:["🏠豫东"],dishes:[
+    {name:"塌菜馍+面汤",ing:[["面粉","350克"],["鸡蛋","4个"],["韭菜","200克"],["粉条","50克"]],steps:["面糊汤+蛋花；韭菜蛋粉条馅夹饼烙金黄"]}
+  ]},lunch:{name:"米饭 + 清蒸鲈鱼 + 青椒肉丝 + 番茄炒蛋 + 虾皮紫菜汤",cost:50,tags:["🦴补钙"],dishes:[
+    {name:"清蒸鲈鱼",ing:[["鲈鱼","1条(约500g)"],["姜葱、蒸鱼豉油","适量"]],steps:["鱼处理干净划刀+料酒+姜葱腌10分钟","微蒸烤纯蒸100°C蒸8-10分钟","倒掉汤汁+新姜葱丝+蒸鱼豉油+浇热油"]},
+    {name:"青椒肉丝",ing:[["猪瘦肉","200克"],["青椒","3个"]],steps:["同前"]},
+    {name:"番茄炒蛋",ing:[["番茄","3个"],["鸡蛋","3个"]],steps:["同前"]},
+    {name:"虾皮紫菜汤",ing:[["紫菜","1片"],["虾皮","10克"],["鸡蛋","1个"]],steps:["水开+虾皮+紫菜+蛋花+盐+香油"]}
+  ]},dinner:{name:"南瓜小米粥 + 花卷 + 肉末豆角 + 凉拌海带丝",cost:19,tags:["🦴补钙"],dishes:[
+    {name:"肉末豆角",ing:[["猪肉馅","150克"],["豆角","300克"]],steps:["肉末煸炒+姜蒜+豆角丁+水煮5分钟收汁"]},
+    {name:"凉拌海带丝",ing:[["海带丝","150克"]],steps:["焯水+蒜泥+调料"]}
+  ]}},
+  {date:"2026-06-28",dow:"周日",week:2,breakfast:{name:"豆浆 + 油条/馒头 + 煮鸡蛋 + 凉拌三丝",cost:11,tags:["🦴补钙"],dishes:[
+    {name:"豆浆+凉拌三丝",ing:[["黄豆","80克"],["海带丝","100克"],["粉丝","50克"],["豆皮","100克"]],steps:["豆浆煮沸；三丝焯水+蒜泥+调料"]}
+  ]},lunch:{name:"猪肉白菜饺子 + 青椒肉丝 + 凉拌木耳黄瓜",cost:45,tags:[],dishes:[
+    {name:"猪肉白菜饺子",ing:[["面粉","400克"],["猪肉馅","250克"],["大白菜","400克"],["姜葱","适量"]],steps:["和面醒30分钟；白菜剁碎+盐腌挤水","肉馅+姜葱+生抽+盐+香油+白菜拌匀","擀皮包饺子，水开煮至浮起再2分钟"],note:"💡 多包些冷冻，忙的时候随吃随煮"},
+    {name:"凉拌木耳黄瓜",ing:[["木耳(干)","20克"],["黄瓜","1根"]],steps:["木耳焯水+黄瓜拍碎+蒜泥+调料"]}
+  ]},dinner:{name:"紫菜蛋花汤 + 蒸饺 + 蒜蓉蒸茄子 + 凉拌黄瓜",cost:18,tags:["⚡快手","❄️消暑"],dishes:[
+    {name:"蒸饺+蒸茄子+紫菜汤",ing:[["速冻饺子","1袋"],["茄子","2根"],["紫菜+鸡蛋","各适量"],["黄瓜","2根"]],steps:["饺子蒸10-12分钟；茄子一起蒸+蒜泥","紫菜蛋花汤；黄瓜拍碎凉拌"]}
+  ]}}
+];
+
+// ============ APP STATE ============
+let currentWeek = 1;
+let currentIdx = 0;
+let touchX = 0;
+
+// ============ HELPERS ============
+function today() { return new Date().toISOString().split('T')[0]; }
+function fmtDate(d) { const [y,m,d_] = d.split('-'); return `${parseInt(m)}月${parseInt(d_)}日`; }
+
+function findTodayIdx() {
+  const t = today();
+  const idx = MENU.findIndex(m => m.date === t);
+  return idx >= 0 ? idx : 0;
+}
+
+function filterByWeek(w) {
+  return MENU.reduce((acc,m,i) => { if(m.week===w) acc.push(i); return acc; },[]);
+}
+
+// ============ RENDER ============
+function renderWeekSwitcher() {
+  const el = document.getElementById('weekSwitcher');
+  el.innerHTML = [1,2].map(w =>
+    `<button class="week-btn${w===currentWeek?' active':''}" onclick="switchWeek(${w})">📅 第${w}周</button>`
+  ).join('');
+}
+
+function renderDayPills() {
+  const el = document.getElementById('dayPills');
+  const indices = filterByWeek(currentWeek);
+  const t = today();
+  el.innerHTML = indices.map((idx,i) => {
+    const m = MENU[idx];
+    const isToday = m.date === t;
+    const isActive = idx === currentIdx;
+    return `<div class="day-pill${isToday?' today':''}${isActive?' active':''}"
+      onclick="selectDay(${idx})">
+      <span class="dow">${m.dow}</span>
+      <span class="dom">${m.date.split('-')[2]}日</span>
+    </div>`;
+  }).join('');
+  // Scroll active into view
+  setTimeout(() => {
+    const active = document.querySelector('.day-pill.active');
+    if(active) active.scrollIntoView({behavior:'smooth',inline:'center'});
+  },100);
+}
+
+function renderContent() {
+  const m = MENU[currentIdx];
+  if(!m) { document.getElementById('content').innerHTML='<div class="empty"><div class="icon">📭</div><p>暂无菜单数据</p></div>'; return; }
+
+  const meals = [
+    {key:'breakfast',label:'🌅 早餐',cls:'breakfast'},
+    {key:'lunch',label:'☀️ 午餐',cls:'lunch'},
+    {key:'dinner',label:'🌙 晚餐',cls:'dinner'}
+  ];
+
+  const dayTotal = meals.reduce((sum,{key}) => sum + (m[key]?.cost||0), 0);
+
+  let html = `<div class="day-title">${m.dow} ${fmtDate(m.date)}<span class="day-cost">💰 ¥${dayTotal}</span></div>`;
+
+  meals.forEach(({key,label,cls}) => {
+    const meal = m[key];
+    if(!meal) return;
+    html += `<div class="meal-card">
+      <span class="meal-label ${cls}">${label}</span>
+      <div class="meal-name">${meal.name}</div>
+      <div class="meal-cost">¥${meal.cost}</div>`;
+    if(meal.tags && meal.tags.length) {
+      html += `<div class="meal-tags">${meal.tags.map(t => {
+        let c = '';
+        if(t.includes('钙')) c='ca';
+        if(t.includes('消暑')||t.includes('凉')) c='cool';
+        if(t.includes('辣')) c='spicy';
+        return `<span class="tag ${c}">${t}</span>`;
+      }).join('')}</div>`;
+    }
+    meal.dishes.forEach((d,i) => {
+      html += `<div class="dish" id="dish-${key}-${i}" onclick="toggleDish('${key}',${i})">
+        <div class="dish-name"><span>${d.name}</span></div>
+        <div class="dish-body">
+          ${d.ing && d.ing.length ? `
+          <div class="ingredients">
+            <div class="ing-title">🛒 食材</div>
+            <div class="ing-list">${d.ing.map(([n,a]) => `<div class="ing-item"><span class="ing-name">${n}</span><span class="ing-amount">${a}</span></div>`).join('')}</div>
+          </div>` : ''}
+          ${d.steps && d.steps.length ? `
+          <div>
+            <div class="step-title">📝 做法</div>
+            <ol class="steps">${d.steps.map((s,i) => `<li data-n="${i+1}.">${s}</li>`).join('')}</ol>
+          </div>` : ''}
+          ${d.note ? `<div class="note">${d.note}</div>` : ''}
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+
+  document.getElementById('content').innerHTML = html;
+
+  // Update bottom stats
+  document.getElementById('bottom').innerHTML = `
+    <div class="stat"><strong>${dayTotal}</strong>今日预算</div>
+    <div class="stat"><strong>${m.week}</strong>第几周</div>
+    <div class="stat"><strong>${m.dow}</strong>星期</div>
+  `;
+
+  document.getElementById('todayLabel').textContent = '📅 ' + fmtDate(m.date) + ' ' + m.dow;
+}
+
+function toggleDish(key, i) {
+  const dish = document.getElementById(`dish-${key}-${i}`);
+  if(dish) dish.classList.toggle('open');
+}
+
+function selectDay(idx) {
+  currentIdx = idx;
+  currentWeek = MENU[idx].week;
+  renderAll();
+  document.getElementById('content').scrollIntoView({behavior:'smooth'});
+}
+
+function switchWeek(w) {
+  currentWeek = w;
+  const indices = filterByWeek(w);
+  currentIdx = indices[0];
+  renderAll();
+  document.getElementById('content').scrollIntoView({behavior:'smooth'});
+}
+
+function renderAll() {
+  renderWeekSwitcher();
+  renderDayPills();
+  renderContent();
+}
+
+// ============ SWIPE ============
+document.addEventListener('touchstart', e => { touchX = e.touches[0].clientX; });
+document.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchX;
+  if(Math.abs(dx) < 50) return;
+  const indices = filterByWeek(currentWeek);
+  const pos = indices.indexOf(currentIdx);
+  if(dx < 0 && pos < indices.length-1) selectDay(indices[pos+1]);
+  if(dx > 0 && pos > 0) selectDay(indices[pos-1]);
+});
+
+// ============ KEYBOARD ============
+document.addEventListener('keydown', e => {
+  const indices = filterByWeek(currentWeek);
+  const pos = indices.indexOf(currentIdx);
+  if(e.key === 'ArrowRight' && pos < indices.length-1) selectDay(indices[pos+1]);
+  if(e.key === 'ArrowLeft' && pos > 0) selectDay(indices[pos-1]);
+});
+
+// ============ INIT ============
+currentIdx = findTodayIdx();
+currentWeek = MENU[currentIdx].week;
+renderAll();
+
+// Auto-open first dish per meal for today
+setTimeout(() => {
+  ['breakfast','lunch','dinner'].forEach(key => {
+    const meal = MENU[currentIdx]?.[key];
+    if(meal && meal.dishes.length) toggleDish(key, 0);
+  });
+}, 300);
+
+// Register Service Worker
+if('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
