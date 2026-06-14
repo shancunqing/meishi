@@ -6,6 +6,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -15,45 +17,24 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Bubblewrap
-        run: npm install -g @bubblewrap/cli
-
-      - name: Initialize TWA project
+      - name: Setup Gradle
         run: |
-          bubblewrap init \
-            --manifest "https://shancunqing.github.io/meishi/manifest.json" \
-            --directory ./twa-project 2>&1 || true
-          # If interactive prompt blocks, create twa-manifest manually
-          if [ ! -f ./twa-project/twa-manifest.json ]; then
-            mkdir -p ./twa-project
-            cat > ./twa-project/twa-manifest.json << 'MANIFESTEOF'
-          {
-            "packageId": "com.shancunqing.meishi",
-            "host": "shancunqing.github.io",
-            "name": "每日菜谱",
-            "launcherName": "每日菜谱",
-            "display": "standalone",
-            "themeColor": "#e07c3c",
-            "navigationColor": "#e07c3c",
-            "backgroundColor": "#fdf6ec",
-            "startUrl": "/meishi/",
-            "iconUrl": "https://shancunqing.github.io/meishi/icon-512.png",
-            "maskableIconUrl": "https://shancunqing.github.io/meishi/icon-512.png",
-            "monochromeIconUrl": "https://shancunqing.github.io/meishi/icon-192.png",
-            "splashScreenFadeOutDuration": 300
-          }
-          MANIFESTEOF
-            bubblewrap update --manifest ./twa-project/twa-manifest.json --directory ./twa-project
+          cd android
+          chmod +x gradlew 2>/dev/null || true
+          gradle wrapper --gradle-version 8.5 2>/dev/null || true
+
+      - name: Build Debug APK
+        run: |
+          cd android
+          # Create local gradle wrapper
+          if [ ! -f gradlew ]; then
+            gradle wrapper --gradle-version 8.5
           fi
-
-      - name: Build APK
-        run: |
-          cd twa-project
-          ./gradlew assembleDebug 2>&1 || ./gradlew assembleRelease 2>&1
-          ls -la app/build/outputs/apk/*/
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: 每日菜谱-APK
-          path: twa-project/app/build/outputs/apk/**/*.apk
+          path: android/app/build/outputs/apk/debug/*.apk
